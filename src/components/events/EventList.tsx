@@ -1,50 +1,61 @@
 import Link from 'next/link'
-import type { DayGroup } from '@/lib/events/grouping'
-import { todayKey } from '@/lib/events/grouping'
-import { formatDayHeading } from '@/lib/events/format'
+import type { DayGroup, DayPart, Occurrence } from '@/lib/events/grouping'
+import { dayPart, todayKey } from '@/lib/events/grouping'
+import { dayParts } from '@/lib/events/format'
 import { EventRow } from '@/components/events/EventRow'
-import { FlyerImage } from '@/components/FlyerImage'
+import { CoffeeIcon, MartiniIcon } from '@/components/icons'
+
+// The logo is a coffee and a martini, so a day reads the same way.
+const PARTS: { key: DayPart; label: string; icon?: React.ReactNode }[] = [
+  { key: 'day', label: 'Daytime', icon: <CoffeeIcon width={16} height={16} /> },
+  { key: 'night', label: 'After dark', icon: <MartiniIcon width={16} height={16} /> },
+  { key: 'tba', label: 'Time TBA' },
+]
+
+/** A day's rows under its coffee and martini headings. */
+export function DayAgenda({ items, wide }: { items: Occurrence[]; wide?: boolean }) {
+  return PARTS.map(({ key, label, icon }) => {
+    const part = items.filter(i => dayPart(i.occursAt) === key)
+    if (part.length === 0) return null
+    return (
+      <div key={key} className="mt-4 first:mt-2">
+        <h3 className="flex items-center gap-2 text-sm text-muted">{icon}{label}</h3>
+        <div className={`mt-1 ${wide ? 'lg:grid lg:grid-cols-2 lg:gap-x-8' : ''}`}>
+          {part.map(({ e, occursAt }) => (
+            <EventRow key={`${e._id}${occursAt}`} event={e} occursAt={occursAt} />
+          ))}
+        </div>
+      </div>
+    )
+  })
+}
 
 export function EventList({ groups }: { groups: DayGroup[] }) {
   const today = todayKey()
   if (groups.length === 0) {
     return (
-      <p className="mt-8 border-y border-dotted border-[var(--accent)]/40 py-4 font-display italic text-[var(--ink-dim)]">
-        quiet on that front. the Gump&apos;s not asleep, though. try loosening a filter, or{' '}
-        <Link href="/" className="link-gold">clear them all</Link>.
-      </p>
+      <div className="py-12">
+        <p className="display text-2xl">Nothing matches that</p>
+        <p className="mt-2 text-dim">
+          Try a longer date range or fewer filters, or <Link href="/" className="link text-ink">start over</Link>.
+        </p>
+      </div>
     )
   }
   return (
-    <div className="mt-2 space-y-8">
+    <div className="space-y-8">
       {groups.map(g => {
-        const withImages = g.items.filter(i => i.e.imageUrl)
+        const { name, date } = dayParts(g.day, today)
         return (
           <section key={g.day}>
-            <h2 className="border-b border-[var(--accent-deep)]/40 pb-1 font-display text-lg italic text-[var(--accent)]">
-              {g.day === today && 'today · '}
-              {formatDayHeading(g.day)}
+            <h2 className="day-head sticky top-0 z-10 flex items-baseline gap-2 border-b border-line py-2">
+              <span className="display text-2xl">{name}</span>
+              <span className="text-sm text-dim">{date}</span>
+              <span className="ml-auto text-sm text-muted tabular-nums">
+                {g.items.length} {g.items.length === 1 ? 'event' : 'events'}
+              </span>
             </h2>
-            {withImages.length > 0 && (
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                {withImages.map(({ e, occursAt }) => (
-                  <Link key={`${e._id}${occursAt}`} href={`/events/${e.slug}`} className="shrink-0">
-                    <FlyerImage
-                      src={e.imageUrl!}
-                      alt={`flyer for ${e.title}`}
-                      width={128}
-                      height={80}
-                      className="h-20 w-32 rounded-md object-cover ring-1 ring-[var(--line-soft)] transition-opacity hover:opacity-90"
-                    />
-                  </Link>
-                ))}
-              </div>
-            )}
-            <div>
-              {g.items.map(({ e, occursAt }) => (
-                <EventRow key={`${e._id}${occursAt}`} event={e} occursAt={occursAt} />
-              ))}
-            </div>
+            <DayAgenda items={g.items} wide />
           </section>
         )
       })}

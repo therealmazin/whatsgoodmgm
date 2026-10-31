@@ -2,48 +2,68 @@
 import { useActionState } from 'react'
 import { submitEvent, type SubmitState } from './actions'
 
-const field = 'w-full rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 placeholder:text-[var(--ink-dim)]/70'
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-medium">{label}</span>
+      {hint && <span className="ml-2 text-sm text-dim">{hint}</span>}
+      <span className="mt-1 block">{children}</span>
+    </label>
+  )
+}
 
 export default function SubmitPage() {
   const [state, action, pending] = useActionState<SubmitState, FormData>(submitEvent, null)
   return (
-    <div className="mx-auto max-w-xl">
-      <h1 className="font-display text-2xl font-semibold tracking-tight md:text-3xl">got something good?</h1>
-      <p className="mt-3 leading-7 text-[var(--ink-dim)]">Tell us about an event, or give us your account to follow: Instagram, TikTok, or Facebook. A human reviews everything before it goes up.</p>
-      {state && (
-        <p className="mt-5 rounded-r-md border-l-2 bg-[var(--surface)] p-3 ring-1 ring-[var(--line-soft)]"
-          style={{ borderLeftColor: state.ok ? 'var(--hue-kudzu)' : 'var(--hue-brick)' }}>
-          {state.message}
-        </p>
-      )}
-      <form action={action} className="mt-8 space-y-8">
-        <fieldset className="space-y-3">
-          <legend className="mb-1 font-display font-semibold italic">your event (optional)</legend>
-          <input name="eventTitle" placeholder="Event title" className={field} />
-          <input name="eventDate" placeholder="When? e.g. Sat July 18, 7pm" className={field} />
-          <input name="eventVenueText" placeholder="Where? venue or address" className={field} />
-          <input name="eventUrl" type="url" placeholder="Link (tickets, FB event, flyer)" className={field} />
-          <textarea name="eventDescription" placeholder="What's good about it?" rows={3} className={field} />
+    <div className="wrap max-w-xl pt-8 md:pt-12">
+      <h1 className="display text-4xl md:text-5xl">Got something good?</h1>
+      <p className="mt-3 leading-7 text-dim">
+        Tell us about an event, or give us an account to follow. Either one is enough. A person reviews
+        everything before it goes up.
+      </p>
+      <form action={action} className="mt-8">
+        <fieldset className="space-y-4">
+          <legend className="display mb-4 w-full text-xl">An event</legend>
+          <Field label="Title"><input name="eventTitle" className="field" /></Field>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="When"><input name="eventDate" placeholder="Sat July 18, 7pm" className="field" /></Field>
+            <Field label="Where"><input name="eventVenueText" placeholder="Venue or address" className="field" /></Field>
+          </div>
+          <Field label="Link"><input name="eventUrl" type="url" placeholder="Tickets, Facebook event, flyer" className="field" /></Field>
+          <Field label="What's good about it?"><textarea name="eventDescription" rows={3} className="field" /></Field>
         </fieldset>
-        <fieldset className="space-y-3">
-          <legend className="mb-1 font-display font-semibold italic">your account (optional)</legend>
-          <div className="flex gap-3">
-            <input name="handle" placeholder="@yourhandle" className={field} />
-            <select name="platform" className={field}>
-              <option value="instagram">Instagram</option><option value="tiktok">TikTok</option>
-              <option value="facebook">Facebook</option><option value="other">Other</option>
-            </select>
+        <div className="mt-8 border-t border-line pt-8">
+        <fieldset className="space-y-4">
+          <legend className="display mb-4 w-full text-xl">An account</legend>
+          <div className="grid grid-cols-[minmax(0,1fr)_8.5rem] gap-3">
+            <Field label="Handle"><input name="handle" placeholder="@yourhandle" className="field" /></Field>
+            <Field label="Platform">
+              <select name="platform" className="field">
+                <option value="instagram">Instagram</option><option value="tiktok">TikTok</option>
+                <option value="facebook">Facebook</option><option value="other">Other</option>
+              </select>
+            </Field>
           </div>
         </fieldset>
-        <input name="submitterEmail" type="email" placeholder="Your email (optional, in case we have questions)" className={field} />
+        </div>
+        <div className="mt-8 border-t border-line pt-8">
+          <Field label="Your email" hint="Optional, in case we have questions">
+            <input name="submitterEmail" type="email" className="field" />
+          </Field>
+        </div>
         <input name="website" className="hidden" tabIndex={-1} autoComplete="off" aria-hidden="true" />
-        <button disabled={pending} className="rounded-full bg-[var(--accent)] px-5 py-2 font-medium text-[var(--accent-ink)] transition-colors hover:bg-[var(--accent)]/90 disabled:opacity-50">
-          {pending ? 'sending…' : 'send it'}
+        {state && (
+          <p role="status" className={`mt-4 rounded-lg bg-raised p-3 ${state.ok ? '' : 'text-accent'}`}>
+            {state.message}
+          </p>
+        )}
+        <button disabled={pending} className="btn btn-primary mt-4">
+          {pending ? 'Sending…' : 'Send it'}
         </button>
       </form>
-      <p className="mt-6 leading-7 text-[var(--ink-dim)]">
-        forms not your thing? email us:{' '}
-        <a href="mailto:info@mmintelligence.ai" className="link-gold text-[var(--ink)]">info@mmintelligence.ai</a>
+      <p className="mt-6 text-dim">
+        Prefer email?{' '}
+        <a href="mailto:info@mmintelligence.ai" className="link text-ink">info@mmintelligence.ai</a>
       </p>
     </div>
   )

@@ -6,37 +6,35 @@ import { useMemo } from 'react'
 
 /**
  * A small, near-static locator map for a single venue on the event detail
- * page. One category-hue pin (the same .wg-pin the big map uses) over the
- * shared warm-dark tile filter. Interaction is switched off - this is a
- * "here's the spot" glance, not a tool: no drag, no wheel zoom, no controls.
+ * page, using the big map's pin and tile treatment. Interaction is switched
+ * off - this is a "here's the spot" glance, not a tool: no drag, no wheel
+ * zoom, no controls.
  */
 export default function VenueMiniMap({
   lat,
   lng,
-  hue,
   name,
 }: {
   lat: number
   lng: number
-  hue: string
   name: string
 }) {
   const icon = useMemo(
     () =>
       divIcon({
         className: '',
-        html: `<div class="wg-pin" style="--pin-hue:${hue}"></div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+        html: '<div class="wg-pin-hit"><div class="wg-pin wg-pin--on"></div></div>',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
       }),
-    [hue],
+    [],
   )
 
   return (
     <MapContainer
       center={[lat, lng]}
       zoom={15}
-      className="h-48 w-full rounded-lg ring-1 ring-[var(--line-soft)]"
+      className="h-56 w-full"
       dragging={false}
       scrollWheelZoom={false}
       doubleClickZoom={false}

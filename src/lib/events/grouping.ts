@@ -11,8 +11,29 @@ const dayKeyFmt = new Intl.DateTimeFormat('en-CA', {
   timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
 })
 
+const midnightFmt = new Intl.DateTimeFormat('en-GB', {
+  timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+})
+
 export function localDayKey(iso: string): string {
   return dayKeyFmt.format(new Date(iso))
+}
+
+// Sources that only publish a date end up stored at 12:00am local. Nothing in
+// the data really starts then, so read midnight as "no time given".
+export function hasKnownTime(iso: string): boolean {
+  return midnightFmt.format(new Date(iso)) !== '00:00'
+}
+
+const hourFmt = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', hourCycle: 'h23' })
+
+export type DayPart = 'day' | 'night' | 'tba'
+
+/** Which half of the logo an event belongs to: coffee or martini, split at 5pm. */
+export function dayPart(iso: string): DayPart {
+  if (!hasKnownTime(iso)) return 'tba'
+  const hour = Number(hourFmt.format(new Date(iso)))
+  return hour >= 17 || hour < 4 ? 'night' : 'day'
 }
 
 export function todayKey(now: Date = new Date()): string {
@@ -31,7 +52,10 @@ export function groupByDay(occurrences: Occurrence[]): DayGroup[] {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([day, items]) => ({
       day,
-      items: items.sort((a, b) => a.occursAt.localeCompare(b.occursAt)),
+      // Unknown times go last: they'd otherwise all land at the top of the day.
+      items: items.sort((a, b) =>
+        Number(hasKnownTime(b.occursAt)) - Number(hasKnownTime(a.occursAt)) ||
+        a.occursAt.localeCompare(b.occursAt)),
     }))
 }
 
@@ -73,6 +97,44 @@ export function monthGrid(ym: string): MonthCell[][] {
     weeks.push(week)
   } while (cursor < firstOfNext)
   return weeks
+}
+
+/**
+ * The instant a Montgomery-local day begins. Central is only ever -5 or -6, so
+ * try both and keep the one that lands on 00:00 local. Reading the offset from
+ * midday instead would be an hour off on the two days the clocks change.
+ */
+export function dayStartIso(day: string): string {
+  for (const utcHour of ['05', '06']) {
+    const iso = `${day}T${utcHour}:00:00.000Z`
+    if (localDayKey(iso) === day && midnightFmt.format(new Date(iso)) === '00:00') return iso
+  }
+  return `${day}T06:00:00.000Z`
+}
+
+/** The last millisecond of a Montgomery-local day. */
+export function dayEndIso(day: string): string {
+  return new Date(Date.parse(dayStartIso(addDays(day, 1))) - 1).toISOString()
+}
+
+/**
+ * Upcoming events worth showing as flyers, soonest first. Sources often file
+ * one show as many documents (or reuse one image), so a run of the same thing
+ * is collapsed by id, title and image rather than filling the wall.
+ */
+export function pickFlyers(occurrences: Occurrence[], limit: number): Occurrence[] {
+  const seen = new Set<string>()
+  const picks: Occurrence[] = []
+  for (const o of occurrences) {
+    if (picks.length === limit) break
+    const { _id, title, imageUrl } = o.e
+    if (!imageUrl) continue
+    const keys = [_id, title.toLowerCase(), imageUrl]
+    if (keys.some(k => seen.has(k))) continue
+    keys.forEach(k => seen.add(k))
+    picks.push(o)
+  }
+  return picks
 }
 
 export function isDayKey(s: string): boolean {

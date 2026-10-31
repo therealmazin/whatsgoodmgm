@@ -1,8 +1,12 @@
 import Link from 'next/link'
 import type { DayGroup } from '@/lib/events/grouping'
 import { addDays, todayKey, weekStart } from '@/lib/events/grouping'
-import { formatDayHeading, formatEventTime } from '@/lib/events/format'
-import { categoryHue } from '@/lib/events/categoryHue'
+import { dayParts, formatDayShort, formatEventTime } from '@/lib/events/format'
+import { eventTone } from '@/lib/events/tones'
+import { CalendarNav } from '@/components/events/CalendarNav'
+import { ToneLegend } from '@/components/events/ToneLegend'
+
+const weekdayFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'short' })
 
 export function WeekView({ anchor, groups, prevHref, nextHref, todayHref }: {
   anchor: string // sunday day-key of the shown week
@@ -16,49 +20,42 @@ export function WeekView({ anchor, groups, prevHref, nextHref, todayHref }: {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart(anchor), i))
 
   return (
-    <div className="mt-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="font-display text-lg font-semibold">
-          week of {formatDayHeading(days[0]).replace(' ·', '')}
-        </p>
-        <div className="flex items-center gap-1 text-sm">
-          <Link href={prevHref} aria-label="previous week" className="px-2 py-1 text-[var(--ink-dim)] hover:text-[var(--ink)]">‹</Link>
-          <Link href={todayHref} className="px-2 py-1 text-[var(--ink-dim)] hover:text-[var(--ink)]">today</Link>
-          <Link href={nextHref} aria-label="next week" className="px-2 py-1 text-[var(--ink-dim)] hover:text-[var(--ink)]">›</Link>
-        </div>
-      </div>
-
-      <div className="grid gap-2 md:grid-cols-7">
+    <div className="mt-6">
+      <CalendarNav
+        title={`${formatDayShort(days[0])} – ${formatDayShort(days[6])}`}
+        unit="week"
+        prevHref={prevHref}
+        nextHref={nextHref}
+        todayHref={todayHref}
+      />
+      <div className="mt-4 md:grid md:grid-cols-7 md:divide-x md:divide-line md:overflow-hidden md:rounded-xl md:border md:border-line">
         {days.map(day => {
           const items = byDay.get(day) ?? []
+          const isToday = day === today
           return (
-            <section key={day} className="overflow-hidden rounded-lg border border-[var(--line-soft)]">
-              <h3
-                className={`px-2 py-1.5 text-center text-[11px] uppercase tracking-wide ${
-                  day === today
-                    ? 'bg-[var(--accent)] text-[var(--accent-ink)]'
-                    : 'bg-[var(--surface-2)] text-[var(--ink-dim)]'
-                }`}
-              >
-                {formatDayHeading(day).replace(' ·', '')}
-              </h3>
-              <div className="min-h-16 space-y-1.5 bg-[var(--surface)] p-1.5">
+            // A phone stacks the week, where a run of empty days is just scrolling.
+            <section key={day} className={`min-w-0 ${items.length === 0 ? 'max-md:hidden' : ''}`}>
+              <h2 className="flex items-baseline gap-2 border-b border-line py-2 md:block md:px-2">
+                <span className="text-sm text-dim">{weekdayFmt.format(new Date(`${day}T12:00:00Z`))}</span>
+                <span className={`font-medium tabular-nums md:mt-1 md:block ${isToday ? 'text-accent' : ''}`}>
+                  {dayParts(day, today).date}
+                </span>
+              </h2>
+              <ul className="space-y-1 py-2 md:p-1">
                 {items.map(({ e, occursAt }) => (
-                  <Link
-                    key={`${e._id}${occursAt}`}
-                    href={`/events/${e.slug}`}
-                    className="block rounded-md border-l-2 bg-[var(--wash)] px-2 py-1.5 text-xs leading-snug transition-colors hover:bg-[var(--surface-2)]"
-                    style={{ borderLeftColor: categoryHue(e.category) }}
-                  >
-                    <span className="tabular-nums text-[var(--ink-dim)]">{formatEventTime(occursAt)}</span>
-                    <span className="mt-0.5 block font-medium">{e.title.toLowerCase()}</span>
-                  </Link>
+                  <li key={`${e._id}${occursAt}`}>
+                    <Link href={`/events/${e.slug}`} className={`pill tone-${eventTone(e.interests)} rounded-md px-2 py-1.5`}>
+                      <span className="block text-xs leading-4 tabular-nums">{formatEventTime(occursAt)}</span>
+                      <span className="mt-0.5 block text-sm font-medium leading-5 md:line-clamp-3 md:text-[13px] md:leading-4">{e.title}</span>
+                    </Link>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </section>
           )
         })}
       </div>
+      <ToneLegend />
     </div>
   )
 }

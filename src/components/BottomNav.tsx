@@ -12,7 +12,7 @@ const iconProps = {
   viewBox: '0 0 24 24',
   fill: 'none',
   stroke: 'currentColor',
-  strokeWidth: 1.6,
+  strokeWidth: 1.5,
   strokeLinecap: 'round' as const,
   strokeLinejoin: 'round' as const,
   'aria-hidden': true,
@@ -21,7 +21,7 @@ const iconProps = {
 const tabs: Tab[] = [
   {
     href: '/',
-    label: 'home',
+    label: 'Events',
     icon: (
       <svg {...iconProps}>
         <path d="M3 10.5 12 3l9 7.5" />
@@ -31,7 +31,7 @@ const tabs: Tab[] = [
   },
   {
     href: '/calendar',
-    label: 'calendar',
+    label: 'Calendar',
     icon: (
       <svg {...iconProps}>
         <rect x="3.5" y="4.5" width="17" height="16" rx="2" />
@@ -41,7 +41,7 @@ const tabs: Tab[] = [
   },
   {
     href: '/map',
-    label: 'map',
+    label: 'Map',
     icon: (
       <svg {...iconProps}>
         <path d="M19 10.5c0 5-7 10.5-7 10.5s-7-5.5-7-10.5a7 7 0 0 1 14 0Z" />
@@ -51,7 +51,7 @@ const tabs: Tab[] = [
   },
   {
     href: '/submit',
-    label: 'submit',
+    label: 'Submit',
     icon: (
       <svg {...iconProps}>
         <circle cx="12" cy="12" r="9" />
@@ -63,10 +63,12 @@ const tabs: Tab[] = [
 
 export default function BottomNav() {
   const pathname = usePathname()
+  // An event page has its own action bar in this spot.
+  if (pathname.startsWith('/events/')) return null
   return (
     <nav
       aria-label="primary"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--line)] bg-[var(--surface)]/90 backdrop-blur-md md:hidden"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-bg md:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <ul className="flex items-stretch">
@@ -77,12 +79,12 @@ export default function BottomNav() {
               <Link
                 href={tab.href}
                 aria-current={active ? 'page' : undefined}
-                className={`flex min-h-14 min-w-12 flex-col items-center justify-center gap-1 py-2 transition-colors ${
-                  active ? 'text-[var(--accent)]' : 'text-[var(--ink-dim)]'
+                className={`flex min-h-14 min-w-12 flex-col items-center justify-center gap-1 py-2 text-xs transition-colors ${
+                  active ? 'font-medium text-accent' : 'text-muted'
                 }`}
               >
                 {tab.icon}
-                <span className="text-[10px] lowercase tracking-wide">{tab.label}</span>
+                {tab.label}
               </Link>
             </li>
           )

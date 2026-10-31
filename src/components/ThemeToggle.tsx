@@ -2,7 +2,7 @@
 
 const iconProps = {
   width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none',
-  stroke: 'currentColor', strokeWidth: 1.6,
+  stroke: 'currentColor', strokeWidth: 1.5,
   strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const,
   'aria-hidden': true,
 }
@@ -22,7 +22,7 @@ export default function ThemeToggle() {
       type="button"
       onClick={toggle}
       aria-label="toggle light or dark mode"
-      className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-[var(--line)] text-[var(--ink-dim)] transition-colors hover:text-[var(--ink)]"
+      className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg text-dim transition-colors hover:bg-raised hover:text-ink"
     >
       {/* sun: shown in dark mode */}
       <svg {...iconProps} className="hidden [[data-theme=dark]_&]:block">

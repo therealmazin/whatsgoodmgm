@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Fraunces, Epilogue, IBM_Plex_Mono } from 'next/font/google'
+import { Fraunces, Instrument_Sans } from 'next/font/google'
 import { SITE_URL } from '@/lib/siteUrl'
 import './globals.css'
 
@@ -9,16 +9,9 @@ const fraunces = Fraunces({
   display: 'swap',
 })
 
-const epilogue = Epilogue({
+const instrumentSans = Instrument_Sans({
   subsets: ['latin'],
-  variable: '--font-epilogue',
-  display: 'swap',
-})
-
-const plexMono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-plex-mono',
+  variable: '--font-instrument-sans',
   display: 'swap',
 })
 
@@ -42,13 +35,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     // suppressHydrationWarning: the pre-paint script in <body> legitimately
     // flips data-theme before React hydrates when the visitor has dark stored
-    <html lang="en" data-theme="light" suppressHydrationWarning className={`${fraunces.variable} ${epilogue.variable} ${plexMono.variable}`}>
+    <html lang="en" data-theme="light" suppressHydrationWarning className={`${fraunces.variable} ${instrumentSans.variable}`}>
       <body className="min-h-screen antialiased">
-        {/* runs before paint so a stored dark preference never flashes cream */}
+        {/* runs before paint so a dark preference (stored, or the system's) never flashes light */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{if(localStorage.getItem('wg-theme')==='dark')document.documentElement.setAttribute('data-theme','dark')}catch(e){}",
+              "try{var t=localStorage.getItem('wg-theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark')}catch(e){}",
           }}
         />
         {children}

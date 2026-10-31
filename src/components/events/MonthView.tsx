@@ -1,12 +1,16 @@
 'use client'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { DayGroup, MonthCell } from '@/lib/events/grouping'
-import { formatDayHeading, formatEventTime } from '@/lib/events/format'
-import { EventRow } from '@/components/events/EventRow'
+import { dayParts } from '@/lib/events/format'
+import { eventTone } from '@/lib/events/tones'
+import { CalendarNav } from '@/components/events/CalendarNav'
+import { DayAgenda } from '@/components/events/EventList'
+import { ToneLegend } from '@/components/events/ToneLegend'
 
-const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
-const MAX_LINES = 3
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const PILLS_DESKTOP = 3
+const PILLS_PHONE = 2
 
 export function MonthView({ weeks, groups, monthLabel, today, prevHref, nextHref, todayHref }: {
   weeks: MonthCell[][]
@@ -18,111 +22,103 @@ export function MonthView({ weeks, groups, monthLabel, today, prevHref, nextHref
   todayHref: string
 }) {
   const byDay = new Map(groups.map(g => [g.day, g.items]))
-  const [selected, setSelected] = useState<string | null>(null)
-  const selectedItems = selected ? (byDay.get(selected) ?? []) : []
-
-  const nav = (
-    <div className="flex items-center justify-between">
-      <p className="font-display text-lg font-semibold">{monthLabel}</p>
-      <div className="flex items-center gap-1 text-sm">
-        <Link href={prevHref} aria-label="previous month" className="px-2 py-1 text-[var(--ink-dim)] hover:text-[var(--ink)]">‹</Link>
-        <Link href={todayHref} className="px-2 py-1 text-[var(--ink-dim)] hover:text-[var(--ink)]">today</Link>
-        <Link href={nextHref} aria-label="next month" className="px-2 py-1 text-[var(--ink-dim)] hover:text-[var(--ink)]">›</Link>
-      </div>
-    </div>
+  const cells = weeks.flat()
+  const inMonth = cells.filter(c => c.inMonth)
+  // Open on something: today if it's in this month, else the first busy day.
+  const [selected, setSelected] = useState<string | null>(
+    inMonth.some(c => c.day === today) ? today : (inMonth.find(c => byDay.has(c.day))?.day ?? null),
   )
+  const selectedItems = selected ? (byDay.get(selected) ?? []) : []
+  const agendaRef = useRef<HTMLElement>(null)
+
+  // Where the day's list sits under the grid, a tap would otherwise change
+  // something off screen and look like it did nothing.
+  function pick(day: string) {
+    setSelected(day)
+    requestAnimationFrame(() => {
+      const agenda = agendaRef.current
+      if (!agenda || agenda.getBoundingClientRect().top < window.innerHeight * 0.75) return
+      const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      agenda.scrollIntoView({ behavior: calm ? 'auto' : 'smooth' })
+    })
+  }
+  const heading = selected ? dayParts(selected, today) : null
 
   return (
-    <div className="mt-4 space-y-3">
-      {nav}
+    <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8">
+      <div className="min-w-0">
+        <CalendarNav title={monthLabel} unit="month" prevHref={prevHref} nextHref={nextHref} todayHref={todayHref} />
 
-      {/* desktop grid */}
-      <div className="hidden overflow-hidden rounded-lg border border-[var(--line)] md:block">
-        <div className="grid grid-cols-7 border-b border-[var(--line)] bg-[var(--surface-2)]">
-          {WEEKDAYS.map(d => (
-            <div key={d} className="px-2 py-1.5 text-center text-[11px] uppercase tracking-widest text-[var(--ink-dim)]">{d}</div>
-          ))}
-        </div>
-        {weeks.map((week, wi) => (
-          <div key={wi} className="grid grid-cols-7 border-b border-[var(--line-soft)] last:border-b-0">
-            {week.map(cell => {
+        <div className="mt-4 overflow-hidden rounded-xl border border-line">
+          <div className="grid grid-cols-7 border-b border-line">
+            {WEEKDAYS.map(d => (
+              <div key={d} className="py-2 text-center text-xs text-dim md:px-2 md:text-left">{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7">
+            {cells.map(cell => {
               const items = byDay.get(cell.day) ?? []
+              const n = items.length
+              const isSelected = selected === cell.day
               return (
                 <div
                   key={cell.day}
-                  className={`min-h-24 border-r border-[var(--line-soft)] p-1.5 last:border-r-0 ${
-                    cell.inMonth ? 'bg-[var(--surface)]' : 'bg-[var(--surface-2)]/50'
-                  } ${cell.day === today ? 'ring-1 ring-inset ring-[var(--accent)]' : ''}`}
+                  className={`relative min-h-22 min-w-0 border-b border-r border-line p-1 transition-colors [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0 md:min-h-30 md:p-2 ${
+                    isSelected ? 'bg-raised' : 'hover:bg-raised'
+                  } ${cell.inMonth ? '' : 'text-muted'}`}
                 >
-                  <p className={`text-xs tabular-nums ${cell.inMonth ? 'text-[var(--ink)]' : 'text-[var(--ink-dim)]'}`}>
+                  {/* Stretches over the cell, so a click anywhere picks the day.
+                      Pills sit above it on desktop and open their event. */}
+                  <button
+                    type="button"
+                    onClick={() => pick(cell.day)}
+                    aria-pressed={isSelected}
+                    aria-label={`${dayParts(cell.day, today).date}, ${n} ${n === 1 ? 'event' : 'events'}`}
+                    className={`mx-auto flex h-6 min-w-6 cursor-pointer items-center justify-center rounded-full px-1 text-sm tabular-nums after:absolute after:inset-0 md:mx-0 ${
+                      cell.day === today ? 'bg-accent font-medium text-accent-ink' : ''
+                    }`}
+                  >
                     {Number(cell.day.slice(8, 10))}
-                  </p>
-                  <ul className="mt-1 space-y-0.5">
-                    {items.slice(0, MAX_LINES).map(({ e, occursAt }) => (
-                      <li key={`${e._id}${occursAt}`} className="truncate text-[11px] leading-tight">
-                        <Link href={`/events/${e.slug}`} className="hover:text-[var(--accent)]">
-                          <span className="text-[var(--ink-dim)]">{formatEventTime(occursAt)}</span> {e.title.toLowerCase()}
-                        </Link>
-                      </li>
+                  </button>
+                  <div className="mt-1 space-y-0.5 md:space-y-1">
+                    {items.slice(0, PILLS_DESKTOP).map(({ e, occursAt }, i) => (
+                      <Link
+                        key={`${e._id}${occursAt}`}
+                        href={`/events/${e.slug}`}
+                        title={e.title}
+                        className={`pill tone-${eventTone(e.interests)} relative z-10 overflow-hidden whitespace-nowrap px-1 text-[11px] font-medium leading-4 max-md:pointer-events-none md:truncate md:px-1.5 md:text-xs md:leading-5 ${
+                          i >= PILLS_PHONE ? 'max-md:hidden' : ''
+                        }`}
+                      >
+                        {e.title}
+                      </Link>
                     ))}
-                    {items.length > MAX_LINES && (
-                      <li className="text-[11px] text-[var(--ink-dim)]">+{items.length - MAX_LINES} more</li>
+                    {n > PILLS_PHONE && (
+                      <p className="px-1 text-[11px] leading-4 text-muted tabular-nums md:px-1.5 md:text-xs">
+                        <span className="md:hidden">+{n - PILLS_PHONE}</span>
+                        {n > PILLS_DESKTOP && <span className="max-md:hidden">{n - PILLS_DESKTOP} more</span>}
+                      </p>
                     )}
-                  </ul>
+                  </div>
                 </div>
               )
             })}
           </div>
-        ))}
+        </div>
+        <ToneLegend />
       </div>
 
-      {/* mobile: compact grid + tap-a-day list */}
-      <div className="md:hidden">
-        <div className="grid grid-cols-7 gap-1">
-          {WEEKDAYS.map(d => (
-            <div key={d} className="text-center text-[10px] uppercase text-[var(--ink-dim)]">{d}</div>
-          ))}
-          {weeks.flat().map(cell => {
-            const count = byDay.get(cell.day)?.length ?? 0
-            const isSelected = selected === cell.day
-            return (
-              <button
-                key={cell.day}
-                type="button"
-                onClick={() => setSelected(isSelected ? null : cell.day)}
-                aria-pressed={isSelected}
-                className={`flex aspect-square flex-col items-center justify-center rounded-md text-xs tabular-nums ${
-                  isSelected
-                    ? 'bg-[var(--accent)] text-[var(--accent-ink)]'
-                    : cell.inMonth
-                      ? 'bg-[var(--surface)] text-[var(--ink)]'
-                      : 'bg-transparent text-[var(--ink-dim)]'
-                } ${cell.day === today ? 'ring-1 ring-[var(--accent)]' : ''}`}
-              >
-                {Number(cell.day.slice(8, 10))}
-                <span
-                  aria-hidden="true"
-                  className={`mt-0.5 h-1 w-1 rounded-full ${count > 0 ? 'bg-current opacity-70' : 'bg-transparent'}`}
-                />
-              </button>
-            )
-          })}
-        </div>
-        {selected && (
-          <div className="mt-4">
-            <h3 className="font-display text-lg italic text-[var(--accent)]">
-              {formatDayHeading(selected)}
-            </h3>
-            {selectedItems.length === 0 ? (
-              <p className="mt-2 font-display italic text-[var(--ink-dim)]">nothing on this day.</p>
-            ) : (
-              selectedItems.map(({ e, occursAt }) => (
-                <EventRow key={`${e._id}${occursAt}`} event={e} occursAt={occursAt} />
-              ))
-            )}
-          </div>
-        )}
-      </div>
+      {heading && (
+        <section ref={agendaRef} aria-live="polite" className="mt-8 min-w-0 scroll-mt-4 lg:sticky lg:top-4 lg:mt-0 lg:max-h-[calc(100dvh-2rem)] lg:self-start lg:overflow-y-auto">
+          <h2 className="flex items-baseline gap-2 border-b border-line pb-2">
+            <span className="display text-2xl">{heading.name}</span>
+            <span className="text-sm text-dim">{heading.date}</span>
+          </h2>
+          {selectedItems.length === 0
+            ? <p className="mt-4 text-dim">Nothing listed for this day</p>
+            : <DayAgenda items={selectedItems} />}
+        </section>
+      )}
     </div>
   )
 }

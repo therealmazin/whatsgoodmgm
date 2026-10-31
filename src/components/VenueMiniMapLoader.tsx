@@ -8,7 +8,6 @@ const VenueMiniMap = dynamic(() => import('@/components/VenueMiniMap'), { ssr: f
 export default function VenueMiniMapLoader(props: {
   lat: number
   lng: number
-  hue: string
   name: string
 }) {
   return <VenueMiniMap {...props} />

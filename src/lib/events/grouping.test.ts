@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   localDayKey, groupByDay, addDays, weekStart, monthGrid, addMonths,
-  isDayKey, isMonthKey, type Occurrence,
+  isDayKey, isMonthKey, dayEndIso, dayPart, dayStartIso, pickFlyers, type Occurrence,
 } from './grouping'
 
 const occ = (id: string, iso: string): Occurrence =>
@@ -65,5 +65,72 @@ describe('param guards', () => {
     expect(isMonthKey('2026-09')).toBe(true)
     expect(isMonthKey('2026-13')).toBe(false)
     expect(isMonthKey('2026-09-07')).toBe(false)
+  })
+})
+
+describe('dayStartIso', () => {
+  it('is local midnight in standard and daylight time', () => {
+    expect(dayStartIso('2026-12-01')).toBe('2026-12-01T06:00:00.000Z')
+    expect(dayStartIso('2026-07-01')).toBe('2026-07-01T05:00:00.000Z')
+  })
+  it('handles the days the clocks change', () => {
+    expect(dayStartIso('2026-11-01')).toBe('2026-11-01T05:00:00.000Z') // still CDT at midnight
+    expect(dayStartIso('2026-03-08')).toBe('2026-03-08T06:00:00.000Z') // still CST at midnight
+  })
+})
+
+describe('dayEndIso', () => {
+  it('is the last millisecond of the Montgomery day', () => {
+    expect(dayEndIso('2026-12-01')).toBe('2026-12-02T05:59:59.999Z')
+    expect(dayEndIso('2026-07-01')).toBe('2026-07-02T04:59:59.999Z')
+  })
+  it('stops at the right hour on the day the clocks change', () => {
+    expect(dayEndIso('2026-11-01')).toBe('2026-11-02T05:59:59.999Z')
+  })
+})
+
+describe('pickFlyers', () => {
+  const occ = (id: string, title: string, imageUrl?: string) =>
+    ({ e: { _id: id, title, imageUrl } as Occurrence['e'], occursAt: '2026-11-04T20:00:00Z' })
+
+  it('keeps order, skips flyerless events, and repeats nothing', () => {
+    const picks = pickFlyers([
+      occ('a', 'Fences', 'https://x/a.jpg'),
+      occ('a', 'Fences', 'https://x/a.jpg'), // same recurring event
+      occ('b', 'Fences', 'https://x/b.jpg'), // same show, separate doc
+      occ('c', 'No flyer'),
+      occ('d', 'Bingo', 'https://x/a.jpg'), // same image on a different listing
+      occ('e', 'Trivia', 'https://x/e.jpg'),
+    ], 6)
+    expect(picks.map(p => p.e._id)).toEqual(['a', 'e'])
+  })
+  it('stops at the limit', () => {
+    const many = ['a', 'b', 'c'].map(id => occ(id, id, `https://x/${id}.jpg`))
+    expect(pickFlyers(many, 2)).toHaveLength(2)
+  })
+})
+
+describe('groupByDay with unknown times', () => {
+  it('sorts date-only events after the ones with real times', () => {
+    const [day] = groupByDay([
+      occ('tba', '2026-11-04T06:00:00Z'), // 12:00am Central: no time given
+      occ('morning', '2026-11-04T14:00:00Z'),
+      occ('night', '2026-11-05T01:00:00Z'),
+    ])
+    expect(day.items.map(i => i.e._id)).toEqual(['morning', 'night', 'tba'])
+  })
+})
+
+describe('dayPart', () => {
+  it('splits a day at 5pm Montgomery time', () => {
+    expect(dayPart('2026-11-04T22:59:00Z')).toBe('day') // 4:59pm CST
+    expect(dayPart('2026-11-04T23:00:00Z')).toBe('night') // 5:00pm CST
+  })
+  it('keeps the small hours with the night before', () => {
+    expect(dayPart('2026-11-04T07:30:00Z')).toBe('night') // 1:30am CST
+    expect(dayPart('2026-11-04T11:00:00Z')).toBe('day') // 5:00am CST
+  })
+  it('has no part for an unknown time', () => {
+    expect(dayPart('2026-11-04T06:00:00Z')).toBe('tba') // 12:00am CST
   })
 })

@@ -21,3 +21,14 @@ export function isOptimizableFlyer(src: string): boolean {
     return false
   }
 }
+
+/**
+ * A small version of a flyer for places <Image> can't reach, like the HTML in a
+ * map pin. 128 matches the list thumbnails, so it reuses that cached resize
+ * rather than spending another image transformation.
+ */
+export function flyerThumbUrl(src: string): string {
+  return isOptimizableFlyer(src)
+    ? `/_next/image?url=${encodeURIComponent(src)}&w=128&q=75`
+    : encodeURI(src).replace(/"/g, '%22')
+}

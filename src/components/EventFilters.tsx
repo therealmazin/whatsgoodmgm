@@ -1,168 +1,38 @@
 'use client'
 import { useRouter, usePathname } from 'next/navigation'
-import { useEffect, useRef, useState, useTransition, type KeyboardEvent } from 'react'
-import { DEFAULT_LIST_DAYS } from '@/lib/events/filter'
+import { useEffect, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from 'react'
+import { DEFAULT_LIST_DAYS, LIST_RANGES } from '@/lib/events/filter'
+import { interestTone } from '@/lib/events/tones'
+import { Dropdown } from '@/components/Dropdown'
+import { CloseIcon, SearchIcon } from '@/components/icons'
 
 const DEFAULT_DAYS = String(DEFAULT_LIST_DAYS)
 
-const pill = 'shrink-0 rounded-full border border-[var(--line)] bg-[var(--surface-2)] px-3.5 py-1.5 text-[var(--ink)] focus:border-[var(--accent-deep)] max-md:py-2.5'
+// The Free button filters on actual price, which is what people mean by it, so
+// the looser "free stuff" interest tag would only be a confusing second one.
+const HIDDEN_INTERESTS = ['free-stuff']
 
-type Option = { value: string; label: string }
+const sentenceCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
-/**
- * Custom listbox dropdown so the OPEN state matches the site too - native
- * <select> popups are OS chrome and can't be themed. Follows the WAI-ARIA
- * "select-only combobox" pattern: focus stays on the pill button and
- * aria-activedescendant tracks the highlighted option.
- */
-function PillSelect({ id, label, value, options, onChange }: {
-  id: string
-  label: string
-  value: string
-  options: readonly Option[]
-  onChange: (value: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const selectedIndex = Math.max(0, options.findIndex(o => o.value === value))
-  const [active, setActive] = useState(selectedIndex)
-  const rootRef = useRef<HTMLDivElement>(null)
-  const buttonRef = useRef<HTMLButtonElement>(null)
-
-  function openPanel() {
-    setActive(selectedIndex)
-    setOpen(true)
-  }
-
-  function choose(i: number) {
-    setOpen(false)
-    buttonRef.current?.focus()
-    if (options[i] && options[i].value !== value) onChange(options[i].value)
-  }
-
-  // Click outside closes.
-  useEffect(() => {
-    if (!open) return
-    function onDocPointerDown(e: PointerEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', onDocPointerDown)
-    return () => document.removeEventListener('pointerdown', onDocPointerDown)
-  }, [open])
-
-  function onKeyDown(e: KeyboardEvent<HTMLButtonElement>) {
-    if (!open) {
-      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        e.preventDefault()
-        openPanel()
-      }
-      return
-    }
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault()
-        setActive(i => Math.min(i + 1, options.length - 1))
-        break
-      case 'ArrowUp':
-        e.preventDefault()
-        setActive(i => Math.max(i - 1, 0))
-        break
-      case 'Home':
-        e.preventDefault()
-        setActive(0)
-        break
-      case 'End':
-        e.preventDefault()
-        setActive(options.length - 1)
-        break
-      case 'Enter':
-      case ' ':
-        e.preventDefault()
-        choose(active)
-        break
-      case 'Escape':
-        e.preventDefault()
-        setOpen(false)
-        buttonRef.current?.focus()
-        break
-      case 'Tab':
-        setOpen(false)
-        break
-    }
-  }
-
-  return (
-    <div ref={rootRef} className="relative shrink-0">
-      <button
-        ref={buttonRef}
-        type="button"
-        id={id}
-        aria-label={label}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={`${id}-listbox`}
-        aria-activedescendant={open ? `${id}-opt-${active}` : undefined}
-        onClick={() => (open ? setOpen(false) : openPanel())}
-        onKeyDown={onKeyDown}
-        className={`${pill} flex cursor-pointer items-center gap-2`}
-      >
-        {options[selectedIndex]?.label}
-        <svg
-          aria-hidden="true"
-          width="10"
-          height="6"
-          viewBox="0 0 10 6"
-          fill="none"
-          className={`shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
-        >
-          <path d="M1 1l4 4 4-4" stroke="var(--ink-dim)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-      {open && (
-        <ul
-          id={`${id}-listbox`}
-          role="listbox"
-          aria-label={label}
-          className="absolute left-0 top-full z-40 mt-2 max-h-64 min-w-full max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-[var(--line)] bg-[var(--surface-2)] py-1.5 shadow-lg shadow-[color:var(--shadow)] max-md:fixed max-md:left-4 max-md:right-4 max-md:top-20 max-md:mt-0 max-md:min-w-0 max-md:max-w-none"
-        >
-          {options.map((o, i) => {
-            const selected = i === selectedIndex
-            return (
-              <li
-                key={o.value}
-                id={`${id}-opt-${i}`}
-                role="option"
-                aria-selected={selected}
-                onMouseEnter={() => setActive(i)}
-                onClick={() => choose(i)}
-                className={`flex cursor-pointer items-center gap-2 whitespace-nowrap px-3.5 py-1.5 max-md:py-3 ${
-                  i === active ? 'bg-[var(--wash)]' : ''
-                } ${selected ? 'text-[var(--accent)]' : 'text-[var(--ink)]'}`}
-              >
-                <span
-                  aria-hidden="true"
-                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${selected ? 'bg-[var(--accent)]' : 'bg-transparent'}`}
-                />
-                {o.label}
-              </li>
-            )
-          })}
-        </ul>
-      )}
-    </div>
-  )
-}
+type Filters = { q?: string; category?: string; interest?: string; days?: string; free?: boolean }
 
 type Props = {
+  viewTabs: ReactNode
+  subscribe: ReactNode
+  showDates: boolean // search and When only exist on the list view
+  keep?: Record<string, string | undefined> // params to preserve, e.g. the month being viewed
+  counts?: Record<string, number> // events per interest; absent while searching
   q?: string
   category?: string
   interest?: string
   days?: string
   free?: string
-  categories: readonly string[]
   interests: readonly { id: string; label: string }[]
 }
 
-export default function EventFilters({ q, category, interest, days, free, categories, interests }: Props) {
+export default function EventFilters({
+  viewTabs, subscribe, showDates, keep, counts, q, category, interest, days, free, interests,
+}: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const [pending, startTransition] = useTransition()
@@ -178,12 +48,13 @@ export default function EventFilters({ q, category, interest, days, free, catego
     setSearch(q ?? '')
   }
 
-  function navigate(next: { q?: string; category?: string; interest?: string; days?: string; free?: boolean }) {
+  function navigate(next: Filters) {
     const params = new URLSearchParams()
-    if (next.q) params.set('q', next.q)
+    for (const [k, v] of Object.entries(keep ?? {})) if (v) params.set(k, v)
+    if (showDates && next.q) params.set('q', next.q)
     if (next.category) params.set('category', next.category)
     if (next.interest) params.set('interest', next.interest)
-    if (next.days && next.days !== DEFAULT_DAYS) params.set('days', next.days)
+    if (showDates && next.days && next.days !== DEFAULT_DAYS) params.set('days', next.days)
     if (next.free) params.set('free', '1')
     const qs = params.toString()
     startTransition(() => {
@@ -191,14 +62,8 @@ export default function EventFilters({ q, category, interest, days, free, catego
     })
   }
 
-  function current(overrides: Partial<{ q: string; category: string; interest: string; days: string; free: boolean }> = {}) {
-    return {
-      q: overrides.q ?? search,
-      category: overrides.category ?? category ?? '',
-      interest: overrides.interest ?? interest ?? '',
-      days: overrides.days ?? days ?? DEFAULT_DAYS,
-      free: overrides.free ?? !!free,
-    }
+  function current(overrides: Filters = {}) {
+    return { q: search, category, interest, days, free: !!free, ...overrides }
   }
 
   function onSearchChange(value: string) {
@@ -215,30 +80,26 @@ export default function EventFilters({ q, category, interest, days, free, catego
     }
   }
 
+  function reset() {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    setSearch('')
+    navigate({ days })
+  }
+
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [])
 
-  const categoryOptions: Option[] = [
-    { value: '', label: 'all categories' },
-    ...categories.map(c => ({ value: c, label: c })),
-  ]
-  const interestOptions: Option[] = [
-    { value: '', label: 'all interests' },
-    ...interests.map(i => ({ value: i.id, label: i.label })),
-  ]
-  const daysOptions: Option[] = [
-    { value: '7', label: 'next 7 days' },
-    { value: '30', label: 'next 30 days' },
-    { value: '90', label: 'next 90 days' },
-  ]
+  const rangeLabel = LIST_RANGES.find(r => r.value === days)?.label ?? `Next ${days} days`
+  const activeInterest = interests.find(i => i.id === interest)
+  const narrowed = !!(search || category || interest || free)
 
   return (
     <form
-      className="mt-5 flex flex-wrap items-center gap-2 border-b border-[var(--line-soft)] pb-5 text-sm max-md:sticky max-md:top-0 max-md:z-30 max-md:flex-nowrap max-md:overflow-x-auto max-md:bg-[var(--bg)]/95 max-md:pt-3 max-md:backdrop-blur"
       method="GET"
+      className="mt-8"
       onSubmit={e => {
         // JS is active - we already auto-filter, so a native submit (e.g. a
         // stray Enter we didn't catch) should still just update the URL
@@ -247,68 +108,122 @@ export default function EventFilters({ q, category, interest, days, free, catego
         navigate(current())
       }}
     >
-      <label className="sr-only" htmlFor="events-search">
-        search events
-      </label>
-      <input
-        id="events-search"
-        name="q"
-        value={search}
-        onChange={e => onSearchChange(e.target.value)}
-        onKeyDown={onSearchKeyDown}
-        placeholder="search events…"
-        className={`${pill} min-w-40`}
-      />
+      <div className="flex flex-wrap items-center gap-2 md:gap-3">
+        {showDates ? (
+          <div className="relative w-full lg:w-64">
+            <label className="sr-only" htmlFor="events-search">Search events</label>
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <input
+              id="events-search"
+              name="q"
+              type="search"
+              value={search}
+              onChange={e => onSearchChange(e.target.value)}
+              onKeyDown={onSearchKeyDown}
+              placeholder="Search"
+              className="field h-11 pl-10 lg:!min-h-9 lg:h-9"
+            />
+          </div>
+        ) : <div className="w-full md:w-auto">{viewTabs}</div>}
 
-      <PillSelect
-        id="events-category"
-        label="category"
-        value={category ?? ''}
-        options={categoryOptions}
-        onChange={v => navigate(current({ category: v }))}
-      />
+        {/* One line: scrolls sideways on phones rather than wrapping. The
+            panels survive that because a phone shows them as fixed sheets. */}
+        <div className="-mx-4 flex min-w-0 grow basis-full items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:basis-0 md:flex-wrap md:overflow-visible md:px-0">
+          {showDates && (
+            <Dropdown title="When" label={rangeLabel} active={days !== DEFAULT_DAYS}>
+              {close => LIST_RANGES.map(r => (
+                <button
+                  key={r.value}
+                  type="button"
+                  aria-pressed={days === r.value}
+                  onClick={() => { navigate(current({ days: r.value })); close() }}
+                  className="opt whitespace-nowrap"
+                >
+                  {r.label}
+                </button>
+              ))}
+            </Dropdown>
+          )}
 
-      <PillSelect
-        id="events-interest"
-        label="interest"
-        value={interest ?? ''}
-        options={interestOptions}
-        onChange={v => navigate(current({ interest: v }))}
-      />
+          <Dropdown
+            title="Interest"
+            active={!!interest}
+            label={
+              <>
+                {activeInterest && <span className={`tone-dot tone-${interestTone(activeInterest.id)}`} />}
+                {activeInterest ? sentenceCase(activeInterest.label) : 'All interests'}
+              </>
+            }
+          >
+            {close => (
+              <>
+                <button
+                  type="button"
+                  aria-pressed={!interest}
+                  onClick={() => { navigate(current({ interest: '' })); close() }}
+                  className="opt whitespace-nowrap"
+                >
+                  All interests
+                </button>
+                {interests.filter(i => !HIDDEN_INTERESTS.includes(i.id) || i.id === interest).map(i => {
+                  const on = interest === i.id
+                  const n = counts?.[i.id]
+                  return (
+                    <button
+                      key={i.id}
+                      type="button"
+                      aria-pressed={on}
+                      disabled={counts !== undefined && !n && !on}
+                      onClick={() => { navigate(current({ interest: i.id })); close() }}
+                      className="opt whitespace-nowrap"
+                    >
+                      <span className={`tone-dot tone-${interestTone(i.id)}`} />
+                      {sentenceCase(i.label)}
+                      {n ? <span className="ml-auto pl-4 text-sm font-normal text-muted tabular-nums">{n}</span> : null}
+                    </button>
+                  )
+                })}
+              </>
+            )}
+          </Dropdown>
 
-      <PillSelect
-        id="events-days"
-        label="date range"
-        value={days ?? DEFAULT_DAYS}
-        options={daysOptions}
-        onChange={v => navigate(current({ days: v }))}
-      />
+          <button
+            type="button"
+            aria-pressed={!!free}
+            onClick={() => navigate(current({ free: !free }))}
+            className="btn btn-sm shrink-0"
+          >
+            Free
+          </button>
 
-      <label className={`${pill} flex cursor-pointer items-center gap-1.5 text-[var(--ink-dim)]`}>
-        <input
-          type="checkbox"
-          name="free"
-          value="1"
-          defaultChecked={!!free}
-          onChange={e => navigate(current({ free: e.target.checked }))}
-          className="accent-[var(--accent)]"
-        />{' '}
-        free only
-      </label>
+          {/* Few events have a category, so it isn't offered, but links can
+              still arrive with one. Show it so it can be removed. */}
+          {category && (
+            <button type="button" aria-pressed onClick={() => navigate(current({ category: '' }))} className="btn btn-sm shrink-0">
+              {sentenceCase(category)}
+              <CloseIcon width={16} height={16} />
+              <span className="sr-only">Remove category filter</span>
+            </button>
+          )}
 
-      {/* No-JS fallback (degraded, accepted): the custom dropdowns require JS,
-          but these hidden inputs keep the active category/days in the URL when
-          the search box is submitted natively via Enter. */}
+          {narrowed && (
+            <button type="button" onClick={reset} className="link shrink-0 cursor-pointer px-1 text-sm text-dim">Clear</button>
+          )}
+          <span aria-live="polite" className="shrink-0 whitespace-nowrap text-sm text-muted">{pending ? 'Updating…' : ''}</span>
+
+          <div className="ml-auto flex shrink-0 items-center gap-2 md:gap-3">
+            {showDates && <div className="hidden md:block">{viewTabs}</div>}
+            {subscribe}
+          </div>
+        </div>
+      </div>
+
+      {/* No-JS fallback (degraded, accepted): the filters need JS, but these
+          keep them in the URL when the search box is submitted natively. */}
       {category ? <input type="hidden" name="category" value={category} /> : null}
       {interest ? <input type="hidden" name="interest" value={interest} /> : null}
       {days && days !== DEFAULT_DAYS ? <input type="hidden" name="days" value={days} /> : null}
-
-      <span
-        aria-hidden={!pending}
-        className={`text-xs text-[var(--ink-dim)] transition-opacity duration-150 ${pending ? 'opacity-100' : 'opacity-0'}`}
-      >
-        updating…
-      </span>
+      {free ? <input type="hidden" name="free" value="1" /> : null}
     </form>
   )
 }
