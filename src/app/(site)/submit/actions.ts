@@ -27,8 +27,11 @@ export async function submitEvent(_prev: SubmitState, formData: FormData): Promi
     return { ok: false, message: 'Easy there, that\'s a lot of submissions. Try again in a bit.' }
   }
 
+  // The dataset is public-read (private datasets need a paid Sanity plan). A dot
+  // in the _id puts the document on a sub-path that only authenticated requests
+  // can read, which keeps submitter emails out of anonymous queries.
   await writeClient.create({
-    _type: 'submission', status: 'new', createdAt: new Date().toISOString(),
+    _id: `submission.${crypto.randomUUID()}`, _type: 'submission', status: 'new', createdAt: new Date().toISOString(),
     handle, platform: short('platform'), submitterEmail: short('submitterEmail'), note: long('note'),
     eventTitle, eventDate: short('eventDate'), eventVenueText: short('eventVenueText'),
     eventUrl: httpUrl('eventUrl'), eventDescription: long('eventDescription'),
