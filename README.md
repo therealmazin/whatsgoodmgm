@@ -44,7 +44,7 @@ cp .env.example .env.local   # then fill in values (see below)
 npm run dev                  # http://localhost:3000
 ```
 
-The dataset is private (form submissions include submitter emails), so even local browsing needs `SANITY_READ_TOKEN`, a Viewer token. Ask a maintainer for one. Studio (`/studio`) needs a Sanity login with access to the project.
+Event data is public, so for local browsing you only need the two `NEXT_PUBLIC_SANITY_*` values. Form submissions are stored under hidden `submission.*` ids that only authenticated requests can read. Studio (`/studio`) needs a Sanity login with access to the project.
 
 ### Environment variables
 
