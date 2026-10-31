@@ -14,3 +14,10 @@
    First run: temporarily add "run everything in dry-run mode (add --dry-run to the ingest and
    write-extracted commands, skip tag-interests)" to the prompt, review the digest, then remove it.
    (Skipping tag-interests matters: that script has no dry-run mode and always writes.)
+4. **Private dataset** (submissions hold submitter emails): create a Viewer token at
+   manage.sanity.io -> project r4b3vt07 -> API -> Tokens, add it to Vercel as SANITY_READ_TOKEN
+   (Production and Preview), deploy, then set the dataset to private
+   (`npx sanity dataset visibility set production private`, or API -> Datasets in manage).
+   Order matters: the site must be reading with a token before the dataset goes private.
+   Verify: an anonymous `https://r4b3vt07.api.sanity.io/v2026-07-01/data/query/production?query=count(*)`
+   returns an error or 0, and whatsgoodmgm.com still lists events.
