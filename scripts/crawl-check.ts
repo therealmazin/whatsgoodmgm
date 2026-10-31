@@ -1,7 +1,10 @@
+import { config } from 'dotenv'
 import { createClient } from '@sanity/client'
+config({ path: '.env.local', quiet: true })
 
 const BASE = process.argv[2] ?? 'http://localhost:3333'
-const c = createClient({ projectId: 'r4b3vt07', dataset: 'production', apiVersion: '2026-07-01', useCdn: false })
+const c = createClient({ projectId: 'r4b3vt07', dataset: 'production', apiVersion: '2026-07-01', useCdn: false,
+  token: process.env.SANITY_READ_TOKEN ?? process.env.SANITY_WRITE_TOKEN })
 
 type Result = { url: string; status: number; ms: number; note?: string }
 const results: Result[] = []

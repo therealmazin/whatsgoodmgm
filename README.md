@@ -44,7 +44,7 @@ cp .env.example .env.local   # then fill in values (see below)
 npm run dev                  # http://localhost:3000
 ```
 
-The site reads public data, so for local browsing you only need the two `NEXT_PUBLIC_SANITY_*` values. Studio (`/studio`) needs a Sanity login with access to the project.
+The dataset is private (form submissions include submitter emails), so even local browsing needs `SANITY_READ_TOKEN`, a Viewer token. Ask a maintainer for one. Studio (`/studio`) needs a Sanity login with access to the project.
 
 ### Environment variables
 
@@ -53,12 +53,13 @@ The site reads public data, so for local browsing you only need the two `NEXT_PU
 | `NEXT_PUBLIC_SANITY_PROJECT_ID` | Everything | Public: `r4b3vt07` |
 | `NEXT_PUBLIC_SANITY_DATASET` | Everything | Public: `production` |
 | `NEXT_PUBLIC_SITE_URL` | Absolute URLs (sitemap, OG, JSON-LD) | `https://whatsgoodmgm.com` in production; leave unset locally |
+| `SANITY_READ_TOKEN` | Every page that reads events | Sanity manage → API → Tokens, **Viewer** role. Server-only, never `NEXT_PUBLIC_`. Falls back to the write token. |
 | `SANITY_WRITE_TOKEN` | Ingest, scripts that write, `/submit` | Sanity manage → API → Tokens. **Maintainers only.** |
 | `REVALIDATE_SECRET` | `/api/revalidate` webhook | Shared with the Sanity webhook. Maintainers only. |
 | `SANITY_PROJECT_ID` | `sanity` CLI (dataset export/backups) | Same value as the public one |
 | `VERCEL_PROJECT_PRODUCTION_URL` | Fallback site URL | Set automatically by Vercel |
 
-> **Vercel note:** project env vars are currently set for **Production only**. Preview deployments (one per PR) fail with `Configuration must contain projectId` until `NEXT_PUBLIC_SANITY_PROJECT_ID` and `NEXT_PUBLIC_SANITY_DATASET` are also added to the **Preview** environment. Don't give Preview the write token.
+> **Vercel note:** project env vars are currently set for **Production only**. Preview deployments (one per PR) fail with `Configuration must contain projectId` until `NEXT_PUBLIC_SANITY_PROJECT_ID`, `NEXT_PUBLIC_SANITY_DATASET` and `SANITY_READ_TOKEN` are also added to the **Preview** environment. Don't give Preview the write token.
 
 ## Scripts
 
